@@ -375,7 +375,9 @@
       </div>
 
       <div class="panel">
-        <div class="panel-head"><h2>⚠ ของใกล้หมด / ต้องสั่งเพิ่ม</h2></div>
+        <div class="panel-head"><h2>⚠ ของใกล้หมด / ต้องสั่งเพิ่ม</h2>
+          <button class="btn secondary" type="button" id="download-low-btn" onclick="downloadLowStockExcel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>ดาวน์โหลด Excel</button>
+        </div>
         <div class="panel-body" id="low-stock-list"><div class="empty-note">กำลังโหลด...</div></div>
       </div>
 
@@ -398,6 +400,7 @@
         </select>
         <button class="btn secondary" type="button" onclick="expandAllGroups()">ขยายทั้งหมด</button>
         <button class="btn secondary" type="button" onclick="collapseAllGroups()">ย่อทั้งหมด</button>
+        <button class="btn secondary" type="button" id="download-products-btn" onclick="downloadProductsExcel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>ดาวน์โหลด Excel</button>
       </div>
       <div class="panel">
         <table>
@@ -594,6 +597,7 @@
 
 <!-- Supabase client + ตั้งค่า (แก้ค่าใน config.js) + ชั้น API ที่คุยกับ Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="supabase-api.js"></script>
 <script>
@@ -834,10 +838,15 @@ function groupProductsByCategory(list){
     if(!groups[cat]) groups[cat] = [];
     groups[cat].push(p);
   });
+  // เรียงรหัสสินค้าตามตัวเลข (A2/2 มาก่อน A2/10) และเรียงชื่อกลุ่มแบบเลขธรรมชาติ (ชั้น 2 ก่อน ชั้น 10)
+  const naturalCmp = new Intl.Collator('th', { numeric: true, sensitivity: 'base' });
+  Object.keys(groups).forEach(cat => {
+    groups[cat].sort((x, y) => naturalCmp.compare(String(x.id ?? ''), String(y.id ?? '')));
+  });
   const names = Object.keys(groups).sort((a, b) => {
     if(a === UNCATEGORIZED_LABEL) return 1;
     if(b === UNCATEGORIZED_LABEL) return -1;
-    return a.localeCompare(b, 'th');
+    return naturalCmp.compare(a, b);
   });
   return { groups, names };
 }
@@ -1444,6 +1453,85 @@ function exportReportCSV(){
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ===========================================================================
+// Excel export — แยกชีตตามตู้/หมวดหมู่
+// ===========================================================================
+function safeSheetName(name, used){
+  let base = String(name || '').replace(/[\[\]:*?\/\\]/g, '-').trim() || 'Sheet';
+  base = base.substring(0, 31);
+  let finalName = base, i = 2;
+  while(used.has(finalName.toLowerCase())){
+    const suffix = ' (' + i + ')';
+    finalName = base.substring(0, 31 - suffix.length) + suffix;
+    i++;
+  }
+  used.add(finalName.toLowerCase());
+  return finalName;
+}
+
+function buildCategoryWorkbook(list, includeReorder){
+  const wb = XLSX.utils.book_new();
+  const { groups, names } = groupProductsByCategory(list);
+  const used = new Set();
+  names.forEach(cat => {
+    const rows = groups[cat].map(p => {
+      const qty = Number(p.qty) || 0, min = Number(p.minQty) || 0, price = Number(p.price) || 0;
+      const row = {
+        'รหัส': String(p.id ?? ''),
+        'ชื่อสินค้า': p.name || '',
+        'หมวดหมู่': p.category || '',
+        'คงเหลือ': qty,
+        'หน่วย': p.unit || '',
+        'จำนวนขั้นต่ำ': min,
+        'ราคา/หน่วย (บาท)': price,
+        'มูลค่าคงเหลือ (บาท)': qty * price
+      };
+      if(includeReorder) row['ควรสั่งเพิ่มอย่างน้อย'] = Math.max(0, min - qty);
+      return row;
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:10},{wch:55},{wch:22},{wch:10},{wch:8},{wch:13},{wch:16},{wch:18}].concat(includeReorder ? [{wch:20}] : []);
+    XLSX.utils.book_append_sheet(wb, ws, safeSheetName(cat, used));
+  });
+  return wb;
+}
+
+function todayStamp(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function downloadProductsExcel(){
+  if(typeof XLSX === 'undefined'){ showError('โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช'); return; }
+  const btn = document.getElementById('download-products-btn');
+  if(btn) btn.disabled = true;
+  apiGet('getProducts')
+    .then(list => {
+      PRODUCTS = list; PRODUCTS_LOADED_AT = Date.now();
+      if(!list.length){ toast('ยังไม่มีสินค้าให้ดาวน์โหลด', 'error'); return; }
+      XLSX.writeFile(buildCategoryWorkbook(list, false), `สต็อกสินค้า-${todayStamp()}.xlsx`);
+      toast('ดาวน์โหลดสต็อกสินค้าเรียบร้อย', 'success');
+    })
+    .catch(showError)
+    .finally(() => { if(btn) btn.disabled = false; });
+}
+
+function downloadLowStockExcel(){
+  if(typeof XLSX === 'undefined'){ showError('โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช'); return; }
+  const btn = document.getElementById('download-low-btn');
+  if(btn) btn.disabled = true;
+  apiGet('getProducts')
+    .then(list => {
+      PRODUCTS = list; PRODUCTS_LOADED_AT = Date.now();
+      const low = list.filter(p => Number(p.qty) <= Number(p.minQty));
+      if(!low.length){ toast('ไม่มีสินค้าใกล้หมดให้ดาวน์โหลด', 'error'); return; }
+      XLSX.writeFile(buildCategoryWorkbook(low, true), `สินค้าใกล้หมด-${todayStamp()}.xlsx`);
+      toast('ดาวน์โหลดรายการของใกล้หมดเรียบร้อย', 'success');
+    })
+    .catch(showError)
+    .finally(() => { if(btn) btn.disabled = false; });
 }
 
 // ===========================================================================
