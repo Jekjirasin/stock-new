@@ -353,6 +353,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
       ประวัติ
     </div>
+    <div class="nav-item" data-view="lowstock">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      ของใกล้หมด/หมด
+    </div>
     <div class="nav-item" data-view="report">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
       รายงานรายเดือน
@@ -477,6 +481,41 @@
       </div>
     </section>
 
+    <!-- ================= LOW STOCK / OUT OF STOCK ================= -->
+    <section class="view" id="view-lowstock">
+      <div class="topbar">
+        <div><h1>ของใกล้หมด / ของหมด</h1><div class="sub">หมด = คงเหลือ 0 · ใกล้หมด = คงเหลือไม่เกินจำนวนขั้นต่ำ</div></div>
+        <button class="refresh-btn" onclick="loadLowStockPage()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0115-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 01-15 6.7L3 16"/></svg>รีเฟรช</button>
+      </div>
+
+      <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
+        <div class="stat-card alert"><div class="label">สินค้าหมด (คงเหลือ 0)</div><div class="value" id="ls-out-count">–</div></div>
+        <div class="stat-card"><div class="label">สินค้าใกล้หมด</div><div class="value" id="ls-low-count" style="color:var(--amber);">–</div></div>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn" type="button" id="ls-dl-all" onclick="downloadStockStatusExcel('all')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>ดาวน์โหลด Excel (แยก 2 ชีต)</button>
+        <button class="btn secondary" type="button" id="ls-dl-out" onclick="downloadStockStatusExcel('out')">ดาวน์โหลดเฉพาะของหมด</button>
+        <button class="btn secondary" type="button" id="ls-dl-low" onclick="downloadStockStatusExcel('low')">ดาวน์โหลดเฉพาะของใกล้หมด</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2 style="color:var(--warn);">⛔ สินค้าหมด</h2><span id="ls-out-label" style="color:var(--muted);font-size:12.5px;"></span></div>
+        <table>
+          <thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>ตู้ / หมวดหมู่</th><th>คงเหลือ</th><th>ขั้นต่ำ</th><th>ควรสั่งเพิ่มอย่างน้อย</th></tr></thead>
+          <tbody id="ls-out-body"><tr><td colspan="6" class="empty-note">กำลังโหลด...</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2 style="color:var(--amber);">⚠ สินค้าใกล้หมด</h2><span id="ls-low-label" style="color:var(--muted);font-size:12.5px;"></span></div>
+        <table>
+          <thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>ตู้ / หมวดหมู่</th><th>คงเหลือ</th><th>ขั้นต่ำ</th><th>ควรสั่งเพิ่มอย่างน้อย</th></tr></thead>
+          <tbody id="ls-low-body"><tr><td colspan="6" class="empty-note">กำลังโหลด...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- ================= REPORT ================= -->
     <section class="view" id="view-report">
       <div class="topbar">
@@ -546,6 +585,10 @@
   <div class="bn-item" data-view="history">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
     <span>ประวัติ</span>
+  </div>
+  <div class="bn-item" data-view="lowstock">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+    <span>ใกล้หมด</span>
   </div>
   <div class="bn-item" data-view="report">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
@@ -707,6 +750,7 @@ function switchView(viewName, opts){
     });
   }
   if(viewName === 'history') loadHistory();
+  if(viewName === 'lowstock') loadLowStockPage();
   if(viewName === 'report'){
     if(!document.getElementById('report-month').value) initReportMonth();
     loadReport();
@@ -1568,6 +1612,122 @@ function downloadLowStockExcel(){
     })
     .catch(showError)
     .finally(() => { if(btn) btn.disabled = false; });
+}
+
+// ===========================================================================
+// ของใกล้หมด / ของหมด — แยกกัน พร้อมดาวน์โหลด Excel
+// หมด = คงเหลือ <= 0 · ใกล้หมด = คงเหลือ > 0 และ <= จำนวนขั้นต่ำ
+// ===========================================================================
+let LOWSTOCK_DATA = { out: [], low: [] };
+
+function sortByCategoryThenId(list){
+  const { groups, names } = groupProductsByCategory(list);
+  return names.reduce((acc, n) => acc.concat(groups[n]), []);
+}
+
+function classifyStock(list){
+  const out = [], low = [];
+  list.forEach(p => {
+    const qty = Number(p.qty) || 0, min = Number(p.minQty) || 0;
+    if(qty <= 0) out.push(p);
+    else if(qty <= min) low.push(p);
+  });
+  return { out: sortByCategoryThenId(out), low: sortByCategoryThenId(low) };
+}
+
+function loadLowStockPage(){
+  apiGet('getProducts')
+    .then(list => {
+      PRODUCTS = list; PRODUCTS_LOADED_AT = Date.now();
+      LOWSTOCK_DATA = classifyStock(list);
+      renderLowStockPage();
+    })
+    .catch(showError);
+}
+
+function lowStockRowHtml(p){
+  const qty = Number(p.qty) || 0, min = Number(p.minQty) || 0;
+  return `
+    <tr>
+      <td class="mono-label pid" data-label="รหัส">${escapeHtml(String(p.id ?? ''))}</td>
+      <td class="mono-label" data-label="ชื่อสินค้า"><strong>${escapeHtml(p.name)}</strong></td>
+      <td class="mono-label" data-label="ตู้ / หมวดหมู่">${escapeHtml(p.category || '-')}</td>
+      <td class="mono-label mono" data-label="คงเหลือ">${qty} ${escapeHtml(p.unit||'')}</td>
+      <td class="mono-label mono" data-label="ขั้นต่ำ">${min}</td>
+      <td class="mono-label mono" data-label="ควรสั่งเพิ่ม">${Math.max(0, min - qty)}</td>
+    </tr>`;
+}
+
+function renderLowStockPage(){
+  const { out, low } = LOWSTOCK_DATA;
+  document.getElementById('ls-out-count').textContent = out.length;
+  document.getElementById('ls-low-count').textContent = low.length;
+  document.getElementById('ls-out-label').textContent = `${out.length} รายการ`;
+  document.getElementById('ls-low-label').textContent = `${low.length} รายการ`;
+  document.getElementById('ls-out-body').innerHTML = out.length
+    ? out.map(lowStockRowHtml).join('')
+    : '<tr><td colspan="6" class="empty-note">ไม่มีสินค้าหมด ✓</td></tr>';
+  document.getElementById('ls-low-body').innerHTML = low.length
+    ? low.map(lowStockRowHtml).join('')
+    : '<tr><td colspan="6" class="empty-note">ไม่มีสินค้าใกล้หมด ✓</td></tr>';
+}
+
+function stockStatusSheet(list){
+  const rows = list.map(p => {
+    const qty = Number(p.qty) || 0, min = Number(p.minQty) || 0, price = Number(p.price) || 0;
+    const need = Math.max(0, min - qty);
+    return {
+      'รหัส': String(p.id ?? ''),
+      'ชื่อสินค้า': p.name || '',
+      'ตู้ / หมวดหมู่': p.category || '',
+      'คงเหลือ': qty,
+      'หน่วย': p.unit || '',
+      'จำนวนขั้นต่ำ': min,
+      'ควรสั่งเพิ่มอย่างน้อย': need,
+      'ราคา/หน่วย (บาท)': price,
+      'มูลค่าสั่งซื้อโดยประมาณ (บาท)': need * price
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows, { header: ['รหัส','ชื่อสินค้า','ตู้ / หมวดหมู่','คงเหลือ','หน่วย','จำนวนขั้นต่ำ','ควรสั่งเพิ่มอย่างน้อย','ราคา/หน่วย (บาท)','มูลค่าสั่งซื้อโดยประมาณ (บาท)'] });
+  ws['!cols'] = [{wch:10},{wch:55},{wch:22},{wch:10},{wch:8},{wch:13},{wch:20},{wch:16},{wch:26}];
+  return ws;
+}
+
+// mode: 'all' = 2 ชีต (หมด / ใกล้หมด) · 'out' = เฉพาะหมด · 'low' = เฉพาะใกล้หมด
+function downloadStockStatusExcel(mode){
+  if(typeof XLSX === 'undefined'){ showError('โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช'); return; }
+  const btnIds = ['ls-dl-all','ls-dl-out','ls-dl-low'];
+  btnIds.forEach(id => { const b = document.getElementById(id); if(b) b.disabled = true; });
+
+  apiGet('getProducts')
+    .then(list => {
+      PRODUCTS = list; PRODUCTS_LOADED_AT = Date.now();
+      LOWSTOCK_DATA = classifyStock(list);
+      renderLowStockPage();
+      const { out, low } = LOWSTOCK_DATA;
+      const wb = XLSX.utils.book_new();
+      let fileName;
+
+      if(mode === 'out'){
+        if(!out.length){ toast('ไม่มีสินค้าหมดให้ดาวน์โหลด', 'error'); return; }
+        XLSX.utils.book_append_sheet(wb, stockStatusSheet(out), 'สินค้าหมด');
+        fileName = `สินค้าหมด-${todayStamp()}.xlsx`;
+      } else if(mode === 'low'){
+        if(!low.length){ toast('ไม่มีสินค้าใกล้หมดให้ดาวน์โหลด', 'error'); return; }
+        XLSX.utils.book_append_sheet(wb, stockStatusSheet(low), 'สินค้าใกล้หมด');
+        fileName = `สินค้าใกล้หมด-${todayStamp()}.xlsx`;
+      } else {
+        if(!out.length && !low.length){ toast('ไม่มีสินค้าหมดหรือใกล้หมดให้ดาวน์โหลด', 'error'); return; }
+        // ใส่ทั้งสองชีตเสมอ ชีตที่ไม่มีข้อมูลจะเป็นชีตว่างที่มีหัวตาราง
+        XLSX.utils.book_append_sheet(wb, stockStatusSheet(out), 'สินค้าหมด');
+        XLSX.utils.book_append_sheet(wb, stockStatusSheet(low), 'สินค้าใกล้หมด');
+        fileName = `สินค้าหมดและใกล้หมด-${todayStamp()}.xlsx`;
+      }
+      XLSX.writeFile(wb, fileName);
+      toast('ดาวน์โหลดเรียบร้อย', 'success');
+    })
+    .catch(showError)
+    .finally(() => { btnIds.forEach(id => { const b = document.getElementById(id); if(b) b.disabled = false; }); });
 }
 
 // ===========================================================================
