@@ -174,6 +174,7 @@
   /* ---------- filters ---------- */
   .filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
   .filter-bar > *{min-width:140px;}
+  .filter-bar > .search-input{flex:1 1 260px;min-width:220px;}
 
   /* ---------- product group headers ---------- */
   tr.group-header{cursor:pointer;background:var(--bg);}
@@ -455,6 +456,8 @@
     <section class="view" id="view-history">
       <div class="topbar"><div><h1>ประวัติการทำรายการ</h1><div class="sub" id="history-count-label"></div></div></div>
       <div class="filter-bar">
+        <input type="text" class="search-input" id="hist-search" placeholder="ค้นหาชื่อสินค้า, รหัส, ผู้ทำรายการ, หมายเหตุ..." autocomplete="off" oninput="renderHistory()">
+        <select id="hist-category" onchange="renderHistory()"><option value="">ทุกตู้ / หมวดหมู่</option></select>
         <select id="hist-type" onchange="loadHistory()">
           <option value="">ทุกประเภท</option>
           <option value="รับเข้า">รับเข้า</option>
@@ -611,6 +614,8 @@ const ADMIN_PASSWORD = (typeof CONFIG_ADMIN_PASSWORD !== 'undefined') ? CONFIG_A
 // State
 // ===========================================================================
 let PRODUCTS = [];
+let HISTORY_LIST = []; // รายการประวัติที่โหลดมาแล้ว (ใช้กรองด้วยช่องค้นหา)
+let HIST_CAT_MAP = {}; // รหัสสินค้า -> ตู้/หมวดหมู่ (ใช้กรองประวัติตามตู้)
 let currentTxType = 'รับเข้า';
 let isDashboardLoaded = false;
 let COLLAPSED_GROUPS = new Set();
@@ -1121,6 +1126,21 @@ function loadHistory(){
     apiGet('getProducts').then(list => {
       const sel = document.getElementById('hist-product');
       sel.innerHTML = '<option value="">ทุกสินค้า</option>' + list.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+
+      HIST_CAT_MAP = {};
+      list.forEach(p => { HIST_CAT_MAP[String(p.id ?? '')] = (p.category || '').trim() || UNCATEGORIZED_LABEL; });
+      const catSel = document.getElementById('hist-category');
+      const prevCat = catSel.value;
+      const cats = Array.from(new Set(Object.values(HIST_CAT_MAP)))
+        .sort((a, b) => {
+          if(a === UNCATEGORIZED_LABEL) return 1;
+          if(b === UNCATEGORIZED_LABEL) return -1;
+          return a.localeCompare(b, 'th', { numeric: true });
+        });
+      catSel.innerHTML = '<option value="">ทุกตู้ / หมวดหมู่</option>' +
+        cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      if(cats.includes(prevCat)) catSel.value = prevCat;
+      renderHistory();
     }).catch(showError);
   }
 
@@ -1132,12 +1152,26 @@ function loadHistory(){
   };
 
   apiGet('getTransactions', filters)
-    .then(renderHistory)
+    .then(list => { HISTORY_LIST = list; renderHistory(); })
     .catch(showError);
 }
 
-function renderHistory(list){
-  document.getElementById('history-count-label').textContent = `พบ ${list.length} รายการ`;
+// แสดงประวัติ โดยกรองด้วยช่องค้นหา (ชื่อสินค้า, รหัส, ผู้ทำรายการ, หมายเหตุ, ประเภท)
+function renderHistory(){
+  const searchEl = document.getElementById('hist-search');
+  const q = ((searchEl && searchEl.value) || '').trim().toLowerCase();
+  const catEl = document.getElementById('hist-category');
+  const cat = catEl ? catEl.value : '';
+  const list = HISTORY_LIST.filter(t => {
+    if(cat && (HIST_CAT_MAP[String(t.productId ?? '')] || '') !== cat) return false;
+    if(!q) return true;
+    return [t.productName, t.productId, t.user, t.note, t.type]
+      .some(v => String(v ?? '').toLowerCase().includes(q));
+  });
+
+  document.getElementById('history-count-label').textContent =
+    (q || cat) ? `พบ ${list.length} จาก ${HISTORY_LIST.length} รายการ` : `พบ ${list.length} รายการ`;
+
   const body = document.getElementById('history-table-body');
   if(list.length === 0){
     body.innerHTML = '<tr><td colspan="7" class="empty-note">ไม่พบรายการ</td></tr>';
@@ -1159,6 +1193,8 @@ function renderHistory(list){
 }
 
 function clearHistoryFilters(){
+  document.getElementById('hist-search').value = '';
+  document.getElementById('hist-category').value = '';
   document.getElementById('hist-type').value = '';
   document.getElementById('hist-product').value = '';
   document.getElementById('hist-from').value = '';
