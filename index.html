@@ -171,6 +171,25 @@
     background:var(--bg);padding:8px 10px;border-radius:7px;
   }
 
+  /* ---------- ปุ่มรับเข้า / เบิกออก (ชัดเจนขึ้น) ---------- */
+  .act-btn{
+    display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:7px;
+    font-size:12.5px;font-weight:700;cursor:pointer;border:1.5px solid;white-space:nowrap;
+  }
+  .act-btn svg{width:13px;height:13px;}
+  .act-btn.in{background:var(--brand-soft);color:var(--brand-dark);border-color:var(--brand);}
+  .act-btn.in:hover{background:var(--brand);color:#fff;}
+  .act-btn.out{background:var(--warn-soft);color:var(--warn);border-color:var(--warn);}
+  .act-btn.out:hover{background:var(--warn);color:#fff;}
+
+  /* ปุ่มสลับประเภทในหน้ารับ/เบิก: เห็นสีแยกกันตั้งแต่ยังไม่ได้เลือก */
+  .tx-type-btn{font-size:15px;padding:14px;}
+  .tx-type-btn small{display:block;font-size:11px;font-weight:500;margin-top:2px;opacity:.85;}
+  .tx-type-btn.sel-in{border-color:#B7D6C6;color:var(--brand-dark);}
+  .tx-type-btn.sel-out{border-color:#F0C5B0;color:var(--warn);}
+  .tx-type-btn.sel-in.active{background:var(--brand);color:#fff;border-color:var(--brand);}
+  .tx-type-btn.sel-out.active{background:var(--warn);color:#fff;border-color:var(--warn);}
+
   /* ---------- filters ---------- */
   .filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
   .filter-bar > *{min-width:140px;}
@@ -423,8 +442,8 @@
       <div class="panel">
         <div class="panel-body pad">
           <div class="tx-type-toggle">
-            <div class="tx-type-btn sel-in active" data-type="รับเข้า" onclick="setTxType('รับเข้า')">⬇ รับเข้า</div>
-            <div class="tx-type-btn sel-out" data-type="เบิกออก" onclick="setTxType('เบิกออก')">⬆ เบิกออก</div>
+            <div class="tx-type-btn sel-in active" data-type="รับเข้า" onclick="setTxType('รับเข้า')">⬇ รับเข้า<small>เพิ่มสต็อก</small></div>
+            <div class="tx-type-btn sel-out" data-type="เบิกออก" onclick="setTxType('เบิกออก')">⬆ เบิกออก<small>ลดสต็อก</small></div>
           </div>
           <form id="tx-form" onsubmit="submitTx(event)">
             <div class="form-grid">
@@ -544,8 +563,8 @@
         <div class="panel-head"><h2>สรุปเคลื่อนไหวรายสินค้า</h2></div>
         <div class="panel-body" style="padding:0;">
           <table>
-            <thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>รับเข้า</th><th>เบิกออก</th><th>ปรับปรุง</th><th>คงเหลือสิ้นเดือน</th></tr></thead>
-            <tbody id="report-table-body"><tr><td colspan="7" class="empty-note">เลือกเดือนเพื่อดูรายงาน</td></tr></tbody>
+            <thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>รับเข้า</th><th>เบิกออก</th><th>ปรับปรุง</th><th>คงเหลือสิ้นเดือน</th><th>ของมีจริงตอนนี้</th></tr></thead>
+            <tbody id="report-table-body"><tr><td colspan="8" class="empty-note">เลือกเดือนเพื่อดูรายงาน</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -986,11 +1005,11 @@ function productRowHtml(p){
       <td class="mono-label mono" data-label="ราคา/หน่วย">฿${Number(p.price||0).toLocaleString('th-TH')}</td>
       <td class="mono-label" data-label="">
         <div class="row-actions">
-          <button class="icon-btn stockin" title="เบิกเข้า" onclick="goToProductTransact('${p.id}','รับเข้า')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>
+          <button class="act-btn in" title="รับเข้า (เพิ่มสต็อก)" onclick="goToProductTransact('${p.id}','รับเข้า')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>รับเข้า
           </button>
-          <button class="icon-btn stockout" title="เบิกออก" onclick="goToProductTransact('${p.id}','เบิกออก')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+          <button class="act-btn out" title="เบิกออก (ลดสต็อก)" onclick="goToProductTransact('${p.id}','เบิกออก')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14"/></svg>เบิกออก
           </button>
           <button class="icon-btn" title="แก้ไข" onclick='requirePassword(function(){ openProductModal(${JSON.stringify(p)}); })'>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -1304,7 +1323,7 @@ function setReportLoading(){
   document.getElementById('rep-total-out').textContent = '…';
   document.getElementById('rep-total-out-value').textContent = '…';
   document.getElementById('report-top-list').innerHTML = '<div class="empty-note">กำลังโหลด...</div>';
-  document.getElementById('report-table-body').innerHTML = '<tr><td colspan="7" class="empty-note">กำลังโหลด...</td></tr>';
+  document.getElementById('report-table-body').innerHTML = '<tr><td colspan="8" class="empty-note">กำลังโหลด...</td></tr>';
   document.getElementById('report-notmoved-body').innerHTML = '<tr><td colspan="5" class="empty-note">กำลังโหลด...</td></tr>';
   document.getElementById('report-notmoved-count').textContent = '';
 }
@@ -1315,7 +1334,7 @@ function setReportEmpty(){
   document.getElementById('rep-total-out').textContent = '–';
   document.getElementById('rep-total-out-value').textContent = '–';
   document.getElementById('report-top-list').innerHTML = '<div class="empty-note">ไม่สามารถโหลดรายงานได้</div>';
-  document.getElementById('report-table-body').innerHTML = '<tr><td colspan="7" class="empty-note">ไม่สามารถโหลดรายงานได้</td></tr>';
+  document.getElementById('report-table-body').innerHTML = '<tr><td colspan="8" class="empty-note">ไม่สามารถโหลดรายงานได้</td></tr>';
   document.getElementById('report-notmoved-body').innerHTML = '<tr><td colspan="5" class="empty-note">ไม่สามารถโหลดรายงานได้</td></tr>';
   document.getElementById('report-notmoved-count').textContent = '';
 }
@@ -1362,7 +1381,9 @@ function buildReportData(monthValue, products, transactions){
       in: r.in,
       out: r.out,
       adj: r.adj,
-      endBalance: r.lastBalance !== null && r.lastBalance !== undefined ? r.lastBalance : '-'
+      endBalance: r.lastBalance !== null && r.lastBalance !== undefined ? r.lastBalance : '-',
+      // ของที่มีจริงตอนนี้ = ยอดคงเหลือปัจจุบันของสินค้าในระบบ
+      currentQty: product ? Number(product.qty) : '-'
     };
   }).sort((a, b) => (b.out + b.in) - (a.out + a.in));
 
@@ -1425,7 +1446,7 @@ function renderReport(report){
   }
 
   const body = document.getElementById('report-table-body');
-  renderReportGroupedTable(body, report.rows, REPORT_COLLAPSED_MOVED, 7, reportRowHtml,
+  renderReportGroupedTable(body, report.rows, REPORT_COLLAPSED_MOVED, 8, reportRowHtml,
     'ไม่มีการเคลื่อนไหวในเดือนนี้', 'moved');
 
   const nmBody = document.getElementById('report-notmoved-body');
@@ -1482,6 +1503,7 @@ function reportRowHtml(r){
       <td class="mono-label mono" data-label="เบิกออก">${r.out ? '-' + r.out : '-'}</td>
       <td class="mono-label mono" data-label="ปรับปรุง">${r.adj ? r.adj + ' ครั้ง' : '-'}</td>
       <td class="mono-label mono" data-label="คงเหลือสิ้นเดือน">${r.endBalance} ${escapeHtml(r.unit||'')}</td>
+      <td class="mono-label mono" data-label="ของมีจริงตอนนี้"><strong>${r.currentQty} ${escapeHtml(r.unit||'')}</strong></td>
     </tr>`;
 }
 
@@ -1508,10 +1530,10 @@ function exportReportCSV(){
     toast('ยังไม่มีข้อมูลรายงานให้ดาวน์โหลด', 'error');
     return;
   }
-  const header = ['รหัส','ชื่อสินค้า','หมวดหมู่','รับเข้า','เบิกออก','ปรับปรุง(ครั้ง)','คงเหลือสิ้นเดือน'];
+  const header = ['รหัส','ชื่อสินค้า','หมวดหมู่','รับเข้า','เบิกออก','ปรับปรุง(ครั้ง)','คงเหลือสิ้นเดือน','ของมีจริงตอนนี้'];
   const lines = [header.join(',')];
   LAST_REPORT.rows.forEach(r => {
-    lines.push([csvSafeText(r.id), `"${String(r.name).replace(/"/g,'""')}"`, `"${String(r.category||'-').replace(/"/g,'""')}"`, r.in, r.out, r.adj, r.endBalance].join(','));
+    lines.push([csvSafeText(r.id), `"${String(r.name).replace(/"/g,'""')}"`, `"${String(r.category||'-').replace(/"/g,'""')}"`, r.in, r.out, r.adj, r.endBalance, r.currentQty].join(','));
   });
   lines.push('');
   lines.push(`รวม,,รวมรับเข้า,${LAST_REPORT.totals.totalIn},รวมเบิกออก,${LAST_REPORT.totals.totalOut},มูลค่าเบิกออก(บาท),${Math.round(LAST_REPORT.totals.totalOutValue)}`);
