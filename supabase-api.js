@@ -89,13 +89,23 @@ async function addProduct(p) {
   const name = String(p.name || '').trim();
   if (!name) throw new Error('กรุณากรอกชื่อสินค้า');
   const initQty = num(p.qty);
-  const row = await ok(sb.from('products').insert({
+
+  const row = {
     name, category: p.category || null, unit: p.unit || null,
     qty: initQty, min_qty: num(p.minQty), price: num(p.price)
-  }).select().single());
-  return toProduct(row);
-}
+  };
 
+  // ถ้าผู้ใช้พิมพ์รหัสเอง ให้ใช้รหัสนั้น ถ้าไม่ใส่ ให้ฐานข้อมูลสร้างให้เหมือนเดิม
+  const code = String(p.newId || '').trim();
+  if (code) row.id = code;
+
+  const { data, error } = await sb.from('products').insert(row).select().single();
+  if (error) {
+    if (error.code === '23505') throw new Error(`รหัส "${code}" มีในระบบแล้ว`);
+    throw new Error(error.message || 'เกิดข้อผิดพลาด');
+  }
+  return toProduct(data);
+}
 async function updateProduct(p) {
   if (!p.id) throw new Error('ไม่พบรหัสสินค้า');
   // ไม่แก้จำนวนตรงนี้ จำนวนแก้ผ่านหน้า รับ/เบิก เท่านั้น
