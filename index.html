@@ -416,7 +416,7 @@
     <section class="view" id="view-products">
       <div class="topbar">
         <div><h1>รายการสินค้า</h1><div class="sub" id="product-count-label"></div></div>
-        <button class="btn" onclick="openProductModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>เพิ่มสินค้า</button>
+        <button class="btn" onclick="openNewStockModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>เพิ่มสินค้า</button>
       </div>
       <div class="toolbar">
         <input type="text" class="search-input" id="product-search" placeholder="ค้นหาชื่อสินค้า, รหัส, หมวดหมู่..." oninput="renderProducts()">
@@ -440,7 +440,9 @@
 
     <!-- ================= TRANSACT ================= -->
     <section class="view" id="view-transact">
-      <div class="topbar"><div><h1>รับเข้า / เบิกออก</h1><div class="sub">บันทึกทุกครั้งที่มีการเคลื่อนไหวสต็อก</div></div></div>
+      <div class="topbar"><div><h1>รับเข้า / เบิกออก</h1><div class="sub">บันทึกทุกครั้งที่มีการเคลื่อนไหวสต็อก</div></div>
+        <button class="btn secondary" type="button" onclick="openNewStockModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>เพิ่มสินค้าใหม่เข้าสต็อก</button>
+      </div>
       <div class="panel">
         <div class="panel-body pad">
           <div class="tx-type-toggle">
@@ -624,13 +626,21 @@
     <div class="modal-body">
       <form id="product-form" onsubmit="saveProduct(event)">
         <input type="hidden" id="p-id">
+        <div class="field">
+          <label>ตู้ / หมวดหมู่</label>
+          <select id="p-category-select" onchange="onCategorySelectChange()"></select>
+          <input type="text" id="p-category" placeholder="พิมพ์ชื่อตู้ใหม่" style="display:none;margin-top:6px;">
+        </div>
+        <div class="field" id="p-code-field">
+          <label>รหัสสินค้า (พิมพ์เอง)</label>
+          <input type="text" id="p-code" placeholder="เช่น A2/15" autocomplete="off">
+        </div>
         <div class="field"><label>ชื่อสินค้า</label><input type="text" id="p-name" required></div>
         <div class="form-grid">
-          <div class="field"><label>หมวดหมู่ / ตู้</label><input type="text" id="p-category" list="p-category-datalist" placeholder="เช่น ตู้ 1, ตู้ 2..."><datalist id="p-category-datalist"></datalist></div>
           <div class="field"><label>หน่วยนับ</label><input type="text" id="p-unit" placeholder="ชิ้น, กล่อง, ขวด..."></div>
           <div class="field" id="p-qty-field"><label>จำนวนเริ่มต้น</label><input type="number" id="p-qty" min="0" step="1" value="0"></div>
           <div class="field"><label>จำนวนขั้นต่ำ (แจ้งเตือน)</label><input type="number" id="p-minqty" min="0" step="1" value="0"></div>
-          <div class="field full"><label>ราคาต่อหน่วย (บาท)</label><input type="number" id="p-price" min="0" step="0.01" value="0"></div>
+          <div class="field"><label>ราคาต่อหน่วย (บาท)</label><input type="number" id="p-price" min="0" step="0.01" value="0"></div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn secondary" onclick="closeProductModal()">ยกเลิก</button>
@@ -892,10 +902,6 @@ function populateCategoryFilter(){
 
   // เก็บค่าที่เลือกไว้เดิม ถ้ายังมีอยู่ในลิสต์
   if(categories.includes(prevValue)) sel.value = prevValue;
-
-  // เติม datalist ในฟอร์มเพิ่ม/แก้ไขสินค้าด้วย เพื่อให้พิมพ์ชื่อตู้ซ้ำได้ง่าย
-  const dl = document.getElementById('p-category-datalist');
-  if(dl) dl.innerHTML = categories.map(c => `<option value="${escapeHtml(c)}">`).join('');
 }
 
 // จัดกลุ่มสินค้าตามตู้/หมวดหมู่ แล้วเรียงชื่อกลุ่มตามตัวอักษรไทย
@@ -946,7 +952,7 @@ function renderProducts(){
   const categoryFilter = document.getElementById('product-category-filter').value;
   const filtered = PRODUCTS.filter(p => {
     // FIX: บังคับแปลง p.id และ p.name เป็น string ก่อน .toLowerCase()
-    // เพราะบางครั้ง backend (Google Apps Script) อาจส่งค่า id กลับมาเป็นตัวเลข (number)
+    // เพราะบางครั้ง backend อาจส่งค่า id กลับมาเป็นตัวเลข (number)
     // ถ้ารหัสสินค้าในชีตเป็นตัวเลขล้วน หรือส่งกลับมาเป็น null/undefined สำหรับแถวว่าง
     const pid = String(p.id ?? '');
     const pname = String(p.name ?? '');
@@ -1024,22 +1030,59 @@ function productRowHtml(p){
     </tr>`;
 }
 
+// ---------- เลือกตู้ (dropdown + ตู้ใหม่) ----------
+function fillCategorySelect(selected){
+  const sel = document.getElementById('p-category-select');
+  const cats = Array.from(new Set(PRODUCTS.map(p => (p.category || '').trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
+  sel.innerHTML = '<option value="">-- เลือกตู้ --</option>'
+    + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')
+    + '<option value="__new__">+ ตู้ใหม่...</option>';
+  if(selected && cats.includes(selected)) sel.value = selected;
+  else if(selected) sel.value = '__new__';
+  else sel.value = '';
+  onCategorySelectChange(selected || '');
+}
+
+function onCategorySelectChange(prefill){
+  const sel = document.getElementById('p-category-select');
+  const inp = document.getElementById('p-category');
+  if(sel.value === '__new__'){
+    inp.style.display = '';
+    inp.value = (typeof prefill === 'string') ? prefill : '';
+    if(typeof prefill !== 'string') inp.focus();
+  } else {
+    inp.style.display = 'none';
+    inp.value = sel.value;
+  }
+}
+
+// เปิดโมดัลเพิ่มสินค้าใหม่ (เลือกตู้ + พิมพ์รหัสเอง) — เรียกจากหน้าสินค้า และหน้ารับ/เบิก
+function openNewStockModal(){
+  loadProductsForForm().then(() => openProductModal());
+}
+
 function openProductModal(product){
   document.getElementById('product-form').reset();
   const qtyField = document.getElementById('p-qty-field');
+  const codeField = document.getElementById('p-code-field');
   if(product){
     document.getElementById('product-modal-title').textContent = 'แก้ไขสินค้า';
     document.getElementById('p-id').value = product.id;
     document.getElementById('p-name').value = product.name;
-    document.getElementById('p-category').value = product.category || '';
     document.getElementById('p-unit').value = product.unit || '';
     document.getElementById('p-minqty').value = product.minQty;
     document.getElementById('p-price').value = product.price;
     qtyField.style.display = 'none'; // แก้จำนวนผ่านหน้า รับ/เบิก เท่านั้น
+    codeField.style.display = 'none'; // ไม่ให้แก้รหัสตอนแก้ไขสินค้า
+    fillCategorySelect((product.category || '').trim());
   } else {
-    document.getElementById('product-modal-title').textContent = 'เพิ่มสินค้าใหม่';
+    document.getElementById('product-modal-title').textContent = 'เพิ่มสินค้าใหม่เข้าสต็อก';
     document.getElementById('p-id').value = '';
+    document.getElementById('p-code').value = '';
     qtyField.style.display = '';
+    codeField.style.display = '';
+    fillCategorySelect('');
   }
   document.getElementById('product-overlay').classList.add('show');
 }
@@ -1050,9 +1093,22 @@ function closeProductModal(){
 function saveProduct(e){
   e.preventDefault();
   const btn = document.getElementById('product-save-btn');
+  const id = document.getElementById('p-id').value;
+  const resetBtn = () => { btn.disabled = false; btn.textContent = 'บันทึก'; };
+
+  // ตรวจข้อมูลก่อนเพิ่มสินค้าใหม่: ต้องเลือกตู้, ใส่รหัส และรหัสต้องไม่ซ้ำ
+  let newCode = '';
+  if(!id){
+    newCode = document.getElementById('p-code').value.trim();
+    if(!document.getElementById('p-category').value.trim()){ showError('กรุณาเลือกตู้ (หรือพิมพ์ชื่อตู้ใหม่)'); return; }
+    if(!newCode){ showError('กรุณาใส่รหัสสินค้า'); return; }
+    if(PRODUCTS.some(p => String(p.id ?? '').toLowerCase() === newCode.toLowerCase())){
+      showError(`รหัส "${newCode}" มีในระบบแล้ว`); return;
+    }
+  }
+
   btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
 
-  const id = document.getElementById('p-id').value;
   const payload = {
     id: id,
     name: document.getElementById('p-name').value.trim(),
@@ -1062,16 +1118,28 @@ function saveProduct(e){
     minQty: document.getElementById('p-minqty').value,
     price: document.getElementById('p-price').value
   };
+  if(!id) payload.newId = newCode; // รหัสที่ผู้ใช้พิมพ์เอง
 
   const onDone = () => {
-    btn.disabled = false; btn.textContent = 'บันทึก';
+    resetBtn();
     closeProductModal();
     toast(id ? 'แก้ไขสินค้าเรียบร้อย' : 'เพิ่มสินค้าเรียบร้อย', 'success');
     PRODUCTS_LOADED_AT = 0; // บังคับให้โหลดข้อมูลสินค้าใหม่ในครั้งถัดไป (ข้อมูลเปลี่ยนแล้ว)
-    loadProducts();
+    const onTransact = document.getElementById('view-transact').classList.contains('active');
+    if(!id && onTransact){
+      // เพิ่มจากหน้ารับ/เบิก: โหลดรายการใหม่แล้วใส่รหัสที่เพิ่งสร้างลงฟอร์มให้เลย
+      loadProductsForForm().then(() => {
+        document.getElementById('tx-product-code').value = newCode;
+        updateTxPreview();
+        const qtyInput = document.getElementById('tx-qty');
+        if(qtyInput) qtyInput.focus();
+      });
+    } else {
+      loadProducts();
+    }
     if(isDashboardLoaded) loadDashboard();
   };
-  const onFail = (err) => { btn.disabled = false; btn.textContent = 'บันทึก'; showError(err); };
+  const onFail = (err) => { resetBtn(); showError(err); };
 
   const req = id ? apiPost('updateProduct', payload) : apiPost('addProduct', payload);
   req.then(onDone).catch(onFail);
