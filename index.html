@@ -453,7 +453,7 @@
             <div class="form-grid">
               <div class="field full">
                 <label>รหัสสินค้า</label>
-                <input type="text" id="tx-product-code" list="tx-product-datalist" placeholder="พิมพ์รหัสสินค้า เช่น P0001" required autocomplete="off" oninput="updateTxPreview()">
+                <input type="text" id="tx-product-code" list="tx-product-datalist" placeholder="พิมพ์รหัสสินค้า เช่น 1/1/1" required autocomplete="off" oninput="updateTxPreview()">
                 <datalist id="tx-product-datalist"></datalist>
                 <div class="stock-preview" id="tx-product-info" style="margin-top:8px;">พิมพ์รหัสสินค้าเพื่อดูชื่อสินค้า</div>
               </div>
@@ -466,8 +466,8 @@
                 <input type="text" id="tx-user" placeholder="ชื่อผู้ทำรายการ" required>
               </div>
               <div class="field full">
-                <label>หมายเหตุ/ใช้กับเครื่องไหน</label>
-                <input type="text" id="tx-note" placeholder="เช่น รับจากซัพพลายเออร์/เบิกใช้แผนก..." pattern="\S*" title="ห้ามมีช่องว่าง" oninput="this.value = this.value.replace(/\s/g,'')">
+                <label>หมายเหตุ(ใช้กับเครื่องไหน)</label>
+                <input type="text" id="tx-note" placeholder="เช่น รับจากซัพพลายเออร์/CR-01" pattern="\S*" title="ห้ามมีช่องว่าง" oninput="this.value = this.value.replace(/\s/g,'')">
               </div>
             </div>
             <div class="stock-preview" id="tx-preview">เลือกสินค้าเพื่อดูยอดคงเหลือ</div>
@@ -1226,6 +1226,7 @@ function submitTx(e){
   const btn = document.getElementById('tx-submit-btn');
   const product = findTxProduct();
   if(!product){ showError('ไม่พบสินค้าตามรหัสที่พิมพ์ กรุณาตรวจสอบรหัสอีกครั้ง'); return; }
+  if(!document.getElementById('tx-note').value.trim()){ showError('กรุณากรอกหมายเหตุ'); document.getElementById('tx-note').focus(); return; }
 
   btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
   const payload = {
