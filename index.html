@@ -98,7 +98,7 @@
 
   .tx-row{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--line);font-size:13px;}
   .tx-row:last-child{border-bottom:none;}
-  .tx-tag{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;flex-shrink:0;}
+  .tx-tag{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;flex-shrink:0;white-space:nowrap;display:inline-block;}
   .tx-tag.in{background:var(--brand-soft);color:var(--brand-dark);}
   .tx-tag.out{background:var(--warn-soft);color:var(--warn);}
   .tx-tag.adj{background:var(--amber-soft);color:var(--amber);}
@@ -453,7 +453,7 @@
             <div class="form-grid">
               <div class="field full">
                 <label>รหัสสินค้า</label>
-                <input type="text" id="tx-product-code" list="tx-product-datalist" placeholder="พิมพ์รหัสสินค้า เช่น 1/1/1" required autocomplete="off" oninput="updateTxPreview()">
+                <input type="text" id="tx-product-code" list="tx-product-datalist" placeholder="พิมพ์รหัสสินค้า เช่น P0001" required autocomplete="off" oninput="updateTxPreview()">
                 <datalist id="tx-product-datalist"></datalist>
                 <div class="stock-preview" id="tx-product-info" style="margin-top:8px;">พิมพ์รหัสสินค้าเพื่อดูชื่อสินค้า</div>
               </div>
@@ -466,8 +466,8 @@
                 <input type="text" id="tx-user" placeholder="ชื่อผู้ทำรายการ" required>
               </div>
               <div class="field full">
-                <label>หมายเหตุ(ใช้กับเครื่องไหน)</label>
-                <input type="text" id="tx-note" placeholder="เช่น รับจากซัพพลายเออร์/CR-01" pattern="\S*" title="ห้ามมีช่องว่าง" oninput="this.value = this.value.replace(/\s/g,'')">
+                <label>หมายเหตุ <span style="color:var(--warn);">*</span></label>
+                <input type="text" id="tx-note" placeholder="เช่น รับจากซัพพลายเออร์/เบิกใช้แผนก..." required pattern="\S+" title="กรุณากรอกหมายเหตุ (ห้ามมีช่องว่าง)" oninput="this.value = this.value.replace(/\s/g,'')">
               </div>
             </div>
             <div class="stock-preview" id="tx-preview">เลือกสินค้าเพื่อดูยอดคงเหลือ</div>
@@ -633,7 +633,7 @@
         </div>
         <div class="field" id="p-code-field">
           <label>รหัสสินค้า (พิมพ์เอง)</label>
-          <input type="text" id="p-code" placeholder="เช่น A2/15" autocomplete="off">
+          <input type="text" id="p-code" placeholder="เช่น A2/15" autocomplete="off" oninput="this.dataset.touched = this.value ? '1' : ''">
         </div>
         <div class="field"><label>ชื่อสินค้า</label><input type="text" id="p-name" required></div>
         <div class="form-grid">
@@ -907,6 +907,18 @@ function populateCategoryFilter(){
 // จัดกลุ่มสินค้าตามตู้/หมวดหมู่ แล้วเรียงชื่อกลุ่มตามตัวอักษรไทย
 // (สินค้าที่ไม่ได้ระบุหมวดหมู่ จะถูกจัดไว้ในกลุ่ม "ไม่ระบุหมวดหมู่" ท้ายสุด)
 const UNCATEGORIZED_LABEL = 'ไม่ระบุหมวดหมู่';
+
+// เรียงรหัสสินค้า: เลขธรรมดา 1-2 หลัก (1, 2, ... 99) มาก่อน
+// แล้วค่อยตามด้วยรหัสอื่นๆ ที่มีอักษรหรืออักขระพิเศษ (เช่น 1/1/1, A2/15) เรียงแบบเลขธรรมชาติ
+const ID_COLLATOR = new Intl.Collator('th', { numeric: true, sensitivity: 'base' });
+function compareProductId(a, b){
+  const sa = String(a ?? '').trim(), sb = String(b ?? '').trim();
+  const ra = /^\d{1,2}$/.test(sa) ? 0 : 1;
+  const rb = /^\d{1,2}$/.test(sb) ? 0 : 1;
+  if(ra !== rb) return ra - rb;
+  return ID_COLLATOR.compare(sa, sb);
+}
+
 function groupProductsByCategory(list){
   const groups = {};
   list.forEach(p => {
@@ -917,7 +929,7 @@ function groupProductsByCategory(list){
   // เรียงรหัสสินค้าตามตัวเลข (A2/2 มาก่อน A2/10) และเรียงชื่อกลุ่มแบบเลขธรรมชาติ (ชั้น 2 ก่อน ชั้น 10)
   const naturalCmp = new Intl.Collator('th', { numeric: true, sensitivity: 'base' });
   Object.keys(groups).forEach(cat => {
-    groups[cat].sort((x, y) => naturalCmp.compare(String(x.id ?? ''), String(y.id ?? '')));
+    groups[cat].sort((x, y) => compareProductId(x.id, y.id));
   });
   const names = Object.keys(groups).sort((a, b) => {
     if(a === UNCATEGORIZED_LABEL) return 1;
@@ -1055,6 +1067,33 @@ function onCategorySelectChange(prefill){
     inp.style.display = 'none';
     inp.value = sel.value;
   }
+
+  // เพิ่มสินค้าใหม่: เลือกตู้แล้วเติมรหัสถัดไปให้ (ถ้าผู้ใช้ยังไม่ได้พิมพ์รหัสเอง)
+  if(!document.getElementById('p-id').value){
+    const codeEl = document.getElementById('p-code');
+    if(codeEl.dataset.touched !== '1'){
+      codeEl.value = (sel.value && sel.value !== '__new__') ? suggestNextCode(sel.value) : '';
+    }
+  }
+}
+
+// หารหัสถัดไปของตู้: เอารหัสสุดท้าย (เรียงแบบเลขธรรมชาติ) แล้วบวกเลขท้ายอีก 1
+// เช่น A2/15 -> A2/16, 1/1/1 -> 1/1/2, P0009 -> P0010 และข้ามรหัสที่มีอยู่แล้ว
+function suggestNextCode(cat){
+  const cmp = new Intl.Collator('th', { numeric: true, sensitivity: 'base' });
+  const ids = PRODUCTS.filter(p => (p.category || '').trim() === cat)
+    .map(p => String(p.id ?? '')).filter(Boolean).sort(cmp.compare);
+  if(!ids.length) return '';
+  const m = ids[ids.length - 1].match(/^(.*?)(\d+)(\D*)$/);
+  if(!m) return '';
+  const taken = new Set(PRODUCTS.map(p => String(p.id ?? '').toLowerCase()));
+  const width = m[2].length, padded = width > 1 && m[2].startsWith('0');
+  let n = Number(m[2]), cand;
+  do {
+    n++;
+    cand = m[1] + (padded ? String(n).padStart(width, '0') : String(n)) + m[3];
+  } while(taken.has(cand.toLowerCase()));
+  return cand;
 }
 
 // เปิดโมดัลเพิ่มสินค้าใหม่ (เลือกตู้ + พิมพ์รหัสเอง) — เรียกจากหน้าสินค้า และหน้ารับ/เบิก
@@ -1080,6 +1119,7 @@ function openProductModal(product){
     document.getElementById('product-modal-title').textContent = 'เพิ่มสินค้าใหม่เข้าสต็อก';
     document.getElementById('p-id').value = '';
     document.getElementById('p-code').value = '';
+    document.getElementById('p-code').dataset.touched = '';
     qtyField.style.display = '';
     codeField.style.display = '';
     fillCategorySelect('');
